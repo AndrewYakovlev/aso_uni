@@ -14,7 +14,7 @@ export interface CurrentUser {
 
 // Получение текущего пользователя (авторизованного или анонимного)
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
 
   // Сначала проверяем access token
   const accessToken = cookieStore.get(COOKIE_NAMES.ACCESS_TOKEN)?.value

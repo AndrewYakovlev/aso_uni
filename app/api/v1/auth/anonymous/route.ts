@@ -8,7 +8,7 @@ import { AUTH } from '@/shared/constants'
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
   // Получаем IP адрес и User-Agent
-  const headersList = headers()
+  const headersList = await headers()
   const ipAddress = headersList.get('x-forwarded-for') || headersList.get('x-real-ip') || 'unknown'
   const userAgent = headersList.get('user-agent') || 'unknown'
 

@@ -12,7 +12,7 @@ export const COOKIE_NAMES = {
 
 // Установка токена в cookies (для использования в API routes)
 export async function setTokenCookie(name: string, token: string, maxAge?: number): Promise<void> {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
 
   cookieStore.set(name, token, {
     ...AUTH.COOKIE_OPTIONS,
@@ -22,14 +22,14 @@ export async function setTokenCookie(name: string, token: string, maxAge?: numbe
 
 // Получение токена из cookies (для использования в API routes)
 export async function getTokenFromCookie(name: string): Promise<string | null> {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const cookie = cookieStore.get(name)
   return cookie?.value || null
 }
 
 // Удаление токена из cookies (для использования в API routes)
 export async function removeTokenCookie(name: string): Promise<void> {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   cookieStore.delete(name)
 }
 
