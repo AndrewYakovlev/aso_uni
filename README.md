@@ -1,36 +1,178 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Автозапчасти АСО - Интернет-магазин автозапчастей
 
-## Getting Started
+## Технологический стек
 
-First, run the development server:
+### Frontend
+- **Framework**: Next.js 15.2.3+ (App Router)
+- **UI Library**: React 19
+- **Стилизация**: Tailwind CSS 4.1
+- **Компоненты**: shadcn
+- **State Management**: Zustand + TanStack Query v5
+- **Формы**: React Hook Form + Zod
+- **Архитектура**: Feature-Sliced Design (FSD)
 
+### Backend
+- **API**: Next.js API Routes
+- **ORM**: Prisma 6.9.0
+- **База данных**: PostgreSQL 15
+- **Кеширование**: Redis 7
+- **Валидация**: Zod
+- **Аутентификация**: JWT + httpOnly cookies
+
+## Быстрый старт
+
+### Требования
+- Node.js 18+
+- Docker и Docker Compose
+- npm или yarn
+
+### Установка и запуск
+
+1. **Клонирование репозитория**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone [repository-url]
+cd auto-parts-store
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Установка зависимостей**
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Запуск Docker контейнеров**
+```bash
+docker-compose up -d
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. **Настройка переменных окружения**
+```bash
+cp .env.local.example .env.local
+# Отредактируйте .env.local согласно вашим настройкам
+```
 
-## Learn More
+5. **Инициализация базы данных**
+```bash
+# Применение миграций
+npm run db:push
 
-To learn more about Next.js, take a look at the following resources:
+# Заполнение базовыми данными
+npm run db:seed
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+6. **Запуск приложения**
+```bash
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Приложение будет доступно по адресу: http://localhost:3000
 
-## Deploy on Vercel
+### Доступы по умолчанию
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+После выполнения seed скрипта будут созданы следующие пользователи:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Администратор**: +79999999999
+- **Менеджер**: +79998888888
+- **Клиент**: +79997777777
+
+## Структура проекта
+
+```
+auto-parts-store/
+├── app/                    # Next.js 15 приложение
+│   ├── (public)/          # Публичные страницы
+│   ├── panel/             # Административная панель
+│   └── api/               # API Routes
+├── widgets/               # Переиспользуемые UI блоки
+├── features/              # Функциональные модули
+├── entities/              # Бизнес-сущности
+├── shared/                # Общий код
+│   ├── api/              # API клиенты
+│   ├── config/           # Конфигурация
+│   ├── lib/              # Утилиты
+│   ├── types/            # TypeScript типы
+│   └── ui/               # UI компоненты
+├── prisma/                # Схема и миграции БД
+└── infrastructure/        # DevOps конфигурации
+```
+
+## Основные команды
+
+### Разработка
+```bash
+npm run dev          # Запуск в режиме разработки
+npm run build        # Сборка для production
+npm run start        # Запуск production сборки
+npm run lint         # Проверка кода
+npm run type-check   # Проверка типов
+```
+
+### База данных
+```bash
+npm run db:push      # Применить схему к БД
+npm run db:migrate   # Создать и применить миграцию
+npm run db:seed      # Заполнить БД тестовыми данными
+npm run db:studio    # Открыть Prisma Studio
+npm run db:generate  # Сгенерировать Prisma Client
+npm run db:reset     # Сбросить БД и применить миграции
+```
+
+### Docker
+```bash
+docker-compose up -d     # Запустить контейнеры
+docker-compose down      # Остановить контейнеры
+docker-compose logs -f   # Просмотр логов
+```
+
+## Дополнительные сервисы
+
+### pgAdmin
+- URL: http://localhost:5050
+- Email: admin@aso.local
+- Password: admin
+
+### Redis Commander (опционально)
+Для удобства работы с Redis можно установить Redis Commander:
+```bash
+npm install -g redis-commander
+redis-commander
+```
+
+## Архитектура (FSD)
+
+Проект следует методологии Feature-Sliced Design:
+
+- **app/** - слой приложения (роутинг, провайдеры, глобальные стили)
+- **widgets/** - композиционный слой (сборка features и entities)
+- **features/** - слой фич (пользовательские сценарии)
+- **entities/** - слой бизнес-сущностей
+- **shared/** - переиспользуемый код
+
+Каждый слой может импортировать только из слоев ниже.
+
+## Разработка
+
+### Создание новой фичи
+1. Создайте папку в `features/feature-name`
+2. Следуйте структуре:
+   - `ui/` - React компоненты
+   - `model/` - Zustand stores, бизнес-логика
+   - `api/` - API вызовы
+   - `index.ts` - публичный API модуля
+
+### Работа с API
+- Все API endpoints находятся в `app/api/v1/`
+- Используйте `shared/api/` для клиентских вызовов
+- Валидация через Zod схемы
+
+### Стилизация
+- Используйте Tailwind CSS классы
+- Компоненты shadcn для базовых UI элементов
+- CSS модули для сложных анимаций
+
+## Деплой
+
+Инструкции по деплою находятся в `infrastructure/README.md`
+
+## Лицензия
+
+Proprietary
