@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -41,6 +41,7 @@ export function VerifyOTPForm({ onBack, onSuccess }: VerifyOTPFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [timeLeft, setTimeLeft] = useState(otpState.expiresIn || 300)
   const [canResend, setCanResend] = useState(false)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -51,12 +52,17 @@ export function VerifyOTPForm({ onBack, onSuccess }: VerifyOTPFormProps) {
 
   // Таймер обратного отсчета
   useEffect(() => {
+    // Очищаем предыдущий интервал
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+    }
+
     if (timeLeft <= 0) {
       setCanResend(true)
       return
     }
 
-    const timer = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           setCanResend(true)
@@ -66,39 +72,54 @@ export function VerifyOTPForm({ onBack, onSuccess }: VerifyOTPFormProps) {
       })
     }, 1000)
 
-    return () => clearInterval(timer)
+    // Очистка при размонтировании
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, []) // Запускаем только при монтировании
+
+  // Отдельный эффект для обновления canResend
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      setCanResend(true)
+    }
   }, [timeLeft])
 
-  const onSubmit = async (data: FormData) => {
-    if (!otpState.phone) {
-      toast.error('Ошибка', {
-        description: 'Сначала запросите код подтверждения',
-      })
-      return
-    }
+  const onSubmit = useCallback(
+    async (data: FormData) => {
+      if (!otpState.phone) {
+        toast.error('Ошибка', {
+          description: 'Сначала запросите код подтверждения',
+        })
+        return
+      }
 
-    setIsSubmitting(true)
+      setIsSubmitting(true)
 
-    try {
-      await verifyOTP(data.code)
-      toast.success('Успешно!', {
-        description: 'Вы успешно авторизованы',
-      })
-      onSuccess?.()
-    } catch (error) {
-      // Ошибка уже обработана в store
-      const errorMessage = useAuthStore.getState().otpError
-      toast.error('Ошибка', {
-        description: errorMessage || 'Неверный код',
-      })
-      // Очищаем поле при ошибке
-      form.setValue('code', '')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+      try {
+        await verifyOTP(data.code)
+        toast.success('Успешно!', {
+          description: 'Вы успешно авторизованы',
+        })
+        onSuccess?.()
+      } catch (error) {
+        // Ошибка уже обработана в store
+        const errorMessage = useAuthStore.getState().otpError
+        toast.error('Ошибка', {
+          description: errorMessage || 'Неверный код',
+        })
+        // Очищаем поле при ошибке
+        form.setValue('code', '')
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [otpState.phone, verifyOTP, onSuccess, form]
+  )
 
-  const handleResend = async () => {
+  const handleResend = useCallback(async () => {
     if (!otpState.phone || !canResend) return
 
     try {
@@ -111,13 +132,13 @@ export function VerifyOTPForm({ onBack, onSuccess }: VerifyOTPFormProps) {
         description: 'Не удалось отправить код повторно',
       })
     }
-  }
+  }, [otpState.phone, canResend, sendOTP])
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     clearOTPState()
     form.reset()
     onBack?.()
-  }
+  }, [clearOTPState, form, onBack])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)

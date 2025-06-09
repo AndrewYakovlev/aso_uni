@@ -5,7 +5,7 @@ import { setAuthCookies, getTokenFromCookie, COOKIE_NAMES } from '@/shared/lib/a
 import { mergeAnonymousDataToUser } from '@/shared/lib/auth/merge-user-data'
 import { verifyOTPSchema } from '@/shared/lib/validation/auth'
 import { successResponse, errorResponse, withErrorHandler } from '@/shared/lib/api-errors'
-import { ERROR_CODES, ApiError } from '@/shared/types'
+import { ERROR_CODES, ApiError, AuthJWTPayload } from '@/shared/types'
 import { AUTH } from '@/shared/constants'
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
@@ -116,10 +116,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   }
 
   // Создаем JWT токены
-  const payload = {
+  const payload: AuthJWTPayload = {
     sub: user.id,
     role: user.role,
-    type: 'user' as const,
+    type: 'user',
   }
 
   const accessToken = await createAccessToken(payload)

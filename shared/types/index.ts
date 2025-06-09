@@ -36,7 +36,8 @@ export interface AuthTokens {
   refreshToken: string
 }
 
-export interface JWTPayload {
+// Переименован из JWTPayload в AuthJWTPayload чтобы избежать конфликта с jose
+export interface AuthJWTPayload {
   sub: string // user id
   role: 'CUSTOMER' | 'MANAGER' | 'ADMIN'
   type: 'user'

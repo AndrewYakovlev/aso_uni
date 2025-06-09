@@ -5,8 +5,9 @@ import { useEffect, useState } from 'react'
 import { LoginModal } from '@/features/auth'
 import { Card } from '@/shared/ui/card'
 import Link from 'next/link'
+import { ClientOnly } from '@/shared/ui/client-only'
 
-export default function LoginPage() {
+function LoginPageContent() {
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') || '/'
   const [isOpen, setIsOpen] = useState(true)
@@ -69,5 +70,23 @@ export default function LoginPage() {
         </div>
       </Card>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <ClientOnly
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-muted/50 p-4">
+          <Card className="w-full max-w-md p-6">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold">Загрузка...</h1>
+            </div>
+          </Card>
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </ClientOnly>
   )
 }

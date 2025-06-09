@@ -1,5 +1,5 @@
-import { SignJWT, jwtVerify } from 'jose'
-import { JWTPayload } from '@/shared/types'
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
+import { AuthJWTPayload } from '@/shared/types'
 import { AUTH } from '@/shared/constants'
 
 // Получаем секретные ключи из переменных окружения
@@ -20,8 +20,8 @@ const getRefreshSecret = () => {
 }
 
 // Создание access токена
-export async function createAccessToken(payload: JWTPayload): Promise<string> {
-  return await new SignJWT(payload)
+export async function createAccessToken(payload: AuthJWTPayload): Promise<string> {
+  return await new SignJWT(payload as unknown as JWTPayload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(AUTH.ACCESS_TOKEN_EXPIRES_IN)
@@ -29,8 +29,8 @@ export async function createAccessToken(payload: JWTPayload): Promise<string> {
 }
 
 // Создание refresh токена
-export async function createRefreshToken(payload: JWTPayload): Promise<string> {
-  return await new SignJWT(payload)
+export async function createRefreshToken(payload: AuthJWTPayload): Promise<string> {
+  return await new SignJWT(payload as unknown as JWTPayload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(AUTH.REFRESH_TOKEN_EXPIRES_IN)
@@ -38,35 +38,50 @@ export async function createRefreshToken(payload: JWTPayload): Promise<string> {
 }
 
 // Верификация access токена
-export async function verifyAccessToken(token: string): Promise<JWTPayload | null> {
+export async function verifyAccessToken(token: string): Promise<AuthJWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getJwtSecret())
-    return payload as JWTPayload
+    // Проверяем, что payload содержит наши кастомные поля
+    if (payload.sub && 'role' in payload && 'type' in payload) {
+      return payload as unknown as AuthJWTPayload
+    }
+    return null
   } catch (error) {
     return null
   }
 }
 
 // Верификация refresh токена
-export async function verifyRefreshToken(token: string): Promise<JWTPayload | null> {
+export async function verifyRefreshToken(token: string): Promise<AuthJWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getRefreshSecret())
-    return payload as JWTPayload
+    // Проверяем, что payload содержит наши кастомные поля
+    if (payload.sub && 'role' in payload && 'type' in payload) {
+      return payload as unknown as AuthJWTPayload
+    }
+    return null
   } catch (error) {
     return null
   }
 }
 
 // Верификация любого токена (для middleware)
-export async function verifyToken(token: string): Promise<JWTPayload | null> {
+export async function verifyToken(token: string): Promise<AuthJWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getJwtSecret())
-    return payload as JWTPayload
+    // Проверяем, что payload содержит наши кастомные поля
+    if (payload.sub && 'role' in payload && 'type' in payload) {
+      return payload as unknown as AuthJWTPayload
+    }
+    return null
   } catch (error) {
     // Если не удалось верифицировать как access токен, пробуем как refresh
     try {
       const { payload } = await jwtVerify(token, getRefreshSecret())
-      return payload as JWTPayload
+      if (payload.sub && 'role' in payload && 'type' in payload) {
+        return payload as unknown as AuthJWTPayload
+      }
+      return null
     } catch {
       return null
     }
@@ -86,7 +101,7 @@ export function extractTokenFromHeader(authHeader: string | null): string | null
 }
 
 // Проверка, истек ли токен
-export function isTokenExpired(payload: JWTPayload): boolean {
+export function isTokenExpired(payload: AuthJWTPayload): boolean {
   if (!payload.exp) return false
   return Date.now() >= payload.exp * 1000
 }

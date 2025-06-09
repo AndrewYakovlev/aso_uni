@@ -2,7 +2,7 @@ import { prisma } from '@/shared/lib/prisma'
 import { verifyRefreshToken, createAccessToken, createRefreshToken } from '@/shared/lib/auth/jwt'
 import { getTokenFromCookie, setAuthCookies, COOKIE_NAMES } from '@/shared/lib/auth/cookies'
 import { successResponse, errorResponse, withErrorHandler } from '@/shared/lib/api-errors'
-import { ERROR_CODES } from '@/shared/types'
+import { ERROR_CODES, AuthJWTPayload } from '@/shared/types'
 
 export const POST = withErrorHandler(async () => {
   // Получаем refresh token из cookies
@@ -38,10 +38,10 @@ export const POST = withErrorHandler(async () => {
   }
 
   // Создаем новые токены
-  const newPayload = {
+  const newPayload: AuthJWTPayload = {
     sub: user.id,
     role: user.role,
-    type: 'user' as const,
+    type: 'user',
   }
 
   const newAccessToken = await createAccessToken(newPayload)

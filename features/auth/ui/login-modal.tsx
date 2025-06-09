@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -31,27 +31,30 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
     }
   }, [otpState.sent, otpState.phone])
 
-  // Очищаем состояние при закрытии модалки
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      clearOTPState()
-      clearError()
-      setStep('phone')
-    }
-    onOpenChange(newOpen)
-  }
+  // Мемоизируем функцию для предотвращения лишних рендеров
+  const handleOpenChange = useCallback(
+    (newOpen: boolean) => {
+      if (!newOpen) {
+        clearOTPState()
+        clearError()
+        setStep('phone')
+      }
+      onOpenChange(newOpen)
+    },
+    [clearOTPState, clearError, onOpenChange]
+  )
 
-  const handlePhoneSuccess = () => {
+  const handlePhoneSuccess = useCallback(() => {
     setStep('otp')
-  }
+  }, [])
 
-  const handleOTPSuccess = () => {
+  const handleOTPSuccess = useCallback(() => {
     handleOpenChange(false)
-  }
+  }, [handleOpenChange])
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     setStep('phone')
-  }
+  }, [])
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

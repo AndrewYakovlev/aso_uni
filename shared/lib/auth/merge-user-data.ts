@@ -1,4 +1,8 @@
 import { prisma } from '@/shared/lib/prisma'
+import { Prisma } from '@prisma/client'
+
+// Используем встроенный тип Prisma для транзакций
+type PrismaTransaction = Prisma.TransactionClient
 
 // Слияние данных анонимного пользователя с авторизованным
 export async function mergeAnonymousDataToUser(userId: string, anonymousId: string): Promise<void> {
@@ -19,7 +23,7 @@ export async function mergeAnonymousDataToUser(userId: string, anonymousId: stri
 
 // Слияние корзин
 async function mergeCartsTransaction(
-  tx: any, // Prisma transaction client
+  tx: PrismaTransaction,
   userId: string,
   anonymousId: string
 ): Promise<void> {
@@ -86,7 +90,7 @@ async function mergeCartsTransaction(
 
 // Слияние истории просмотров
 async function mergeViewHistoryTransaction(
-  tx: any,
+  tx: PrismaTransaction,
   userId: string,
   anonymousId: string
 ): Promise<void> {
@@ -101,7 +105,11 @@ async function mergeViewHistoryTransaction(
 }
 
 // Слияние чатов
-async function mergeChatsTransaction(tx: any, userId: string, anonymousId: string): Promise<void> {
+async function mergeChatsTransaction(
+  tx: PrismaTransaction,
+  userId: string,
+  anonymousId: string
+): Promise<void> {
   // Переносим все чаты анонимного пользователя
   await tx.chat.updateMany({
     where: { anonymousId },

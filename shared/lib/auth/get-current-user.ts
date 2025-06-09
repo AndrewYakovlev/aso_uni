@@ -6,7 +6,20 @@ import { User, AnonymousUser } from '@prisma/client'
 
 export interface CurrentUser {
   type: 'user' | 'anonymous'
-  user?: User
+  user?: Pick<
+    User,
+    | 'id'
+    | 'phone'
+    | 'email'
+    | 'firstName'
+    | 'lastName'
+    | 'role'
+    | 'personalDiscount'
+    | 'customerGroupId'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'deletedAt'
+  >
   anonymousUser?: AnonymousUser
   id: string
   role: 'CUSTOMER' | 'MANAGER' | 'ADMIN' | 'ANONYMOUS'
@@ -36,10 +49,11 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
           customerGroupId: true,
           createdAt: true,
           updatedAt: true,
+          deletedAt: true,
         },
       })
 
-      if (user) {
+      if (user && !user.deletedAt) {
         return {
           type: 'user',
           user,

@@ -6,8 +6,9 @@ import { Button } from '@/shared/ui/button'
 import { useCurrentUser } from '@/shared/lib/hooks/use-current-user'
 import { formatPhone } from '@/shared/lib/utils'
 import { toast } from 'sonner'
+import { ClientOnly } from '@/shared/ui/client-only'
 
-export default function DemoAuthPage() {
+function DemoAuthContent() {
   const [modalOpen, setModalOpen] = useState(false)
   const { data: currentUser, isLoading } = useCurrentUser()
 
@@ -192,5 +193,19 @@ export default function DemoAuthPage() {
         </a>
       </div>
     </div>
+  )
+}
+
+export default function DemoAuthPage() {
+  return (
+    <ClientOnly
+      fallback={
+        <div className="container mx-auto p-8 max-w-4xl">
+          <h1 className="text-3xl font-bold mb-8">Загрузка...</h1>
+        </div>
+      }
+    >
+      <DemoAuthContent />
+    </ClientOnly>
   )
 }

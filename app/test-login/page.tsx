@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { useAuthStore, useOTPState } from '@/features/auth/model/auth-store'
 import { useCurrentUser as useCurrentUserHook } from '@/shared/lib/hooks/use-current-user'
+import { ClientOnly } from '@/shared/ui/client-only'
 
-export default function TestLoginPage() {
+function TestLoginContent() {
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [showUserData, setShowUserData] = useState(false)
@@ -222,5 +223,19 @@ export default function TestLoginPage() {
         </a>
       </div>
     </div>
+  )
+}
+
+export default function TestLoginPage() {
+  return (
+    <ClientOnly
+      fallback={
+        <div className="container mx-auto p-8 max-w-2xl">
+          <h1 className="text-2xl font-bold mb-6">Загрузка...</h1>
+        </div>
+      }
+    >
+      <TestLoginContent />
+    </ClientOnly>
   )
 }
