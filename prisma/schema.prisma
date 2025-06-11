@@ -19,6 +19,10 @@ model User {
   customerGroupId  String?
   customerGroup    CustomerGroup? @relation(fields: [customerGroupId], references: [id])
   personalDiscount Decimal?       @default(0) @db.Decimal(5, 2)
+  phoneVerified    Boolean        @default(false)
+  emailVerified    Boolean        @default(false)
+  lastLoginAt      DateTime?
+  lastActivityAt   DateTime       @default(now())
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   deletedAt        DateTime?
@@ -35,6 +39,13 @@ model User {
   PushSubscription     PushSubscription[]
   NotificationSettings NotificationSettings?
   NotificationLog      NotificationLog[]
+  otpCodes             OtpCode[]
+  productViews         ProductView[]
+  cartAbandonments     CartAbandonment[]
+  importJobs           ImportJob[]
+  auditLogs            AuditLog[]
+  anonymousSessions    AnonymousUser[]
+  searchHistory        SearchHistory[]
 
   @@index([phone])
   @@index([email])
@@ -47,33 +58,40 @@ enum UserRole {
   ADMIN
 }
 
+// Коды подтверждения
 model OtpCode {
   id        String   @id @default(cuid())
-  phone     String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
   code      String
   attempts  Int      @default(0)
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  @@index([phone])
-  @@index([code])
-  @@index([expiresAt])
+  @@index([userId, createdAt])
 }
 
 // Анонимные пользователи
 model AnonymousUser {
   id           String   @id @default(cuid())
+  token        String   @unique // Уникальный токен для идентификации
   sessionId    String   @unique
   ipAddress    String?
   userAgent    String?
+  userId       String? // Связь с реальным пользователем после авторизации
+  user         User?    @relation(fields: [userId], references: [id])
   createdAt    DateTime @default(now())
   lastActivity DateTime @default(now())
 
-  carts       Cart[]
-  chats       Chat[]
-  viewHistory ViewHistory[]
+  carts         Cart[]
+  chats         Chat[]
+  viewHistory   ViewHistory[]
+  favorites     Favorite[]
+  searchHistory SearchHistory[]
 
+  @@index([token])
   @@index([sessionId])
+  @@index([userId])
 }
 
 // Push подписки пользователей
@@ -157,9 +175,14 @@ model Category {
   updatedAt   DateTime   @updatedAt
   deletedAt   DateTime?
 
+  // SEO поля
   metaTitle       String?
   metaDescription String?
   metaKeywords    String?
+  ogTitle         String?
+  ogDescription   String?
+  ogImage         String?
+  canonicalUrl    String?
 
   products        ProductCategory[]
   characteristics CharacteristicCategory[]
@@ -181,6 +204,9 @@ model Product {
   comparePrice     Decimal?  @db.Decimal(10, 2)
   stock            Int       @default(0)
   deliveryDays     Int?
+  weight           Decimal?  @db.Decimal(10, 3) // в кг
+  dimensions       Json? // {length, width, height} в см
+  minOrderQuantity Int?      @default(1)
   brandId          String
   brand            Brand     @relation(fields: [brandId], references: [id])
   isOriginal       Boolean   @default(true)
@@ -189,9 +215,14 @@ model Product {
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?
 
+  // SEO поля
   metaTitle       String?
   metaDescription String?
   metaKeywords    String?
+  ogTitle         String?
+  ogDescription   String?
+  ogImage         String?
+  canonicalUrl    String?
 
   categories          ProductCategory[]
   images              ProductImage[]
@@ -202,12 +233,37 @@ model Product {
   orderItems          OrderItem[]
   favorites           Favorite[]
   viewHistory         ViewHistory[]
+  tags                ProductTag[]
+  productViews        ProductView[]
 
   @@index([slug])
   @@index([sku])
   @@index([brandId])
   @@index([isActive])
   @@index([price])
+}
+
+// Теги товаров
+model Tag {
+  id       String       @id @default(cuid())
+  name     String       @unique
+  slug     String       @unique
+  products ProductTag[]
+
+  @@index([slug])
+}
+
+// Связь товаров с тегами
+model ProductTag {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([productId, tagId])
+  @@index([tagId])
 }
 
 // Связь товаров с категориями
@@ -433,15 +489,19 @@ enum CrossType {
 
 // Избранное
 model Favorite {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  createdAt DateTime @default(now())
+  id            String         @id @default(cuid())
+  userId        String?
+  user          User?          @relation(fields: [userId], references: [id])
+  anonymousId   String?
+  anonymousUser AnonymousUser? @relation(fields: [anonymousId], references: [id])
+  productId     String
+  product       Product        @relation(fields: [productId], references: [id])
+  createdAt     DateTime       @default(now())
 
   @@unique([userId, productId])
+  @@unique([anonymousId, productId])
   @@index([userId])
+  @@index([anonymousId])
 }
 
 // История просмотров
@@ -461,6 +521,22 @@ model ViewHistory {
   @@index([anonymousId, viewedAt])
 }
 
+// Просмотры товаров для аналитики
+model ProductView {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  sessionId String?
+  source    String? // search, category, direct, recommendation
+  referrer  String?
+  viewedAt  DateTime @default(now())
+
+  @@index([productId, viewedAt])
+  @@index([userId])
+}
+
 // Корзина
 model Cart {
   id            String         @id @default(cuid())
@@ -471,7 +547,8 @@ model Cart {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  items CartItem[]
+  items            CartItem[]
+  cartAbandonments CartAbandonment[]
 
   @@index([userId])
   @@index([anonymousId])
@@ -491,6 +568,26 @@ model CartItem {
 
   @@unique([cartId, productId, chatProductId])
   @@index([cartId])
+}
+
+// Брошенные корзины
+model CartAbandonment {
+  id             String    @id @default(cuid())
+  cartId         String
+  cart           Cart      @relation(fields: [cartId], references: [id])
+  userId         String?
+  user           User?     @relation(fields: [userId], references: [id])
+  email          String?
+  phone          String?
+  totalValue     Decimal   @db.Decimal(10, 2)
+  itemsCount     Int
+  reminderSent   Boolean   @default(false)
+  reminderSentAt DateTime?
+  recoveredAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // Карточки товаров из чата
@@ -650,6 +747,7 @@ model PaymentMethod {
 model Order {
   id               String         @id @default(cuid())
   orderNumber      String         @unique
+  invoiceNumber    String?        @unique
   userId           String
   user             User           @relation(fields: [userId], references: [id])
   statusId         String
@@ -795,4 +893,138 @@ model PromoCodeUsage {
   @@unique([promoCodeId, userId, orderId])
   @@index([promoCodeId])
   @@index([userId])
+}
+
+// Задачи импорта/экспорта
+model ImportJob {
+  id            String    @id @default(cuid())
+  type          String // products, categories, vehicles
+  fileName      String
+  fileUrl       String
+  status        String // pending, processing, completed, failed
+  totalRows     Int?
+  processedRows Int       @default(0)
+  errorRows     Int       @default(0)
+  errorReport   Json?
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+// SEO редиректы
+model Redirect {
+  id         String   @id @default(cuid())
+  fromPath   String   @unique
+  toPath     String
+  statusCode Int      @default(301)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@index([fromPath])
+}
+
+// Популярные поисковые запросы
+model SearchQuery {
+  id         String   @id @default(cuid())
+  query      String
+  count      Int      @default(1)
+  lastUsedAt DateTime @default(now())
+
+  @@unique([query])
+  @@index([count])
+}
+
+// История поиска пользователей
+model SearchHistory {
+  id               String         @id @default(cuid())
+  query            String
+  userId           String?
+  user             User?          @relation(fields: [userId], references: [id])
+  anonymousId      String?
+  anonymousUser    AnonymousUser? @relation(fields: [anonymousId], references: [id])
+  resultsCount     Int? // Количество найденных результатов
+  clickedProductId String? // ID товара, на который кликнули из поиска
+  searchedAt       DateTime       @default(now())
+
+  @@index([userId, searchedAt])
+  @@index([anonymousId, searchedAt])
+  @@index([query])
+}
+
+// Баннеры
+model Banner {
+  id        String    @id @default(cuid())
+  title     String
+  imageUrl  String
+  linkUrl   String?
+  position  String // home_hero, home_sidebar, category_top
+  sortOrder Int       @default(0)
+  isActive  Boolean   @default(true)
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([position, isActive])
+}
+
+// Шаблоны email
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  code      String   @unique // order_created, order_status_changed
+  name      String
+  subject   String
+  bodyHtml  String
+  bodyText  String?
+  variables Json? // Доступные переменные
+  isActive  Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@index([code])
+}
+
+// Системные настройки
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  type      String // string, number, boolean, json
+  group     String // general, email, sms, payment
+  updatedAt DateTime @updatedAt
+
+  @@index([group])
+}
+
+// Журнал аудита
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String // create, update, delete
+  entity    String // product, order, user
+  entityId  String
+  changes   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entity, entityId])
+}
+
+// Медиа файлы
+model Media {
+  id         String   @id @default(cuid())
+  filename   String
+  url        String
+  mimeType   String
+  size       Int // в байтах
+  type       String // image, document, archive
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+
+  @@index([type])
 }

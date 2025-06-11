@@ -1,20 +1,36 @@
-import { clearAuthCookies } from '@/shared/lib/auth/cookies'
-import { successResponse, withErrorHandler } from '@/shared/lib/api-errors'
-import { getCurrentUser } from '@/shared/lib/auth/get-current-user'
+import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import {
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  generateAnonymousToken,
+  ANONYMOUS_TOKEN_COOKIE,
+  COOKIE_OPTIONS,
+  ANONYMOUS_TOKEN_MAX_AGE,
+} from '@/shared/lib/auth'
 
-export const POST = withErrorHandler(async () => {
-  // Получаем текущего пользователя для логирования
-  const currentUser = await getCurrentUser()
+export async function POST(request: NextRequest) {
+  try {
+    const cookieStore = await cookies()
 
-  // Очищаем все auth cookies
-  await clearAuthCookies()
+    // Удаляем токены авторизации
+    cookieStore.delete(ACCESS_TOKEN_COOKIE)
+    cookieStore.delete(REFRESH_TOKEN_COOKIE)
 
-  if (currentUser?.type === 'user') {
-    console.log(`👋 Пользователь ${currentUser.user?.phone} вышел из системы`)
+    // Создаем новый анонимный токен
+    const newAnonymousToken = generateAnonymousToken()
+
+    cookieStore.set(ANONYMOUS_TOKEN_COOKIE, newAnonymousToken, {
+      ...COOKIE_OPTIONS,
+      maxAge: ANONYMOUS_TOKEN_MAX_AGE,
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Вы успешно вышли из системы',
+    })
+  } catch (error) {
+    console.error('Error in logout:', error)
+    return NextResponse.json({ error: 'Ошибка при выходе из системы' }, { status: 500 })
   }
-
-  return successResponse({
-    success: true,
-    message: 'Вы успешно вышли из системы',
-  })
-})
+}

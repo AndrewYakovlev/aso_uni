@@ -1,15 +1,30 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import { MantineProvider, ColorSchemeScript } from '@mantine/core'
+import { Notifications } from '@mantine/notifications'
+import { ModalsProvider } from '@mantine/modals'
+import { theme } from '@/shared/ui/mantine/theme'
+
+// Импорт стилей Mantine
+import '@mantine/core/styles.css'
+import '@mantine/dates/styles.css'
+import '@mantine/notifications/styles.css'
+import '@mantine/code-highlight/styles.css'
+import '@mantine/spotlight/styles.css'
+import '@mantine/carousel/styles.css'
+import '@mantine/dropzone/styles.css'
+import '@mantine/charts/styles.css'
+
+// Глобальные стили
 import './globals.css'
-import { SEO } from '@/shared/constants'
-import { Providers } from './providers'
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
 export const metadata: Metadata = {
-  title: SEO.DEFAULT_TITLE,
-  description: SEO.DEFAULT_DESCRIPTION,
-  keywords: SEO.DEFAULT_KEYWORDS,
+  title: 'Автозапчасти АСО - Интернет-магазин автозапчастей',
+  description:
+    'Широкий ассортимент автозапчастей с быстрой доставкой. Оригинальные и аналоговые запчасти для всех марок автомобилей.',
+  keywords: 'автозапчасти, запчасти для авто, купить автозапчасти, магазин автозапчастей',
   authors: [{ name: 'АСО' }],
   creator: 'АСО',
   publisher: 'АСО',
@@ -17,14 +32,6 @@ export const metadata: Metadata = {
     email: false,
     address: false,
     telephone: false,
-  },
-  openGraph: {
-    title: SEO.DEFAULT_TITLE,
-    description: SEO.DEFAULT_DESCRIPTION,
-    url: process.env.NEXT_PUBLIC_APP_URL,
-    siteName: 'Автозапчасти АСО',
-    locale: 'ru_RU',
-    type: 'website',
   },
   robots: {
     index: true,
@@ -37,22 +44,29 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
-  twitter: {
-    title: SEO.DEFAULT_TITLE,
-    card: 'summary_large_image',
-  },
-  verification: {
-    // Добавьте ваши коды верификации
-    // google: 'google-verification-code',
-    // yandex: 'yandex-verification-code',
-  },
 }
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+}
+
+import { AuthProvider } from '@/shared/ui/auth-provider'
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru" suppressHydrationWarning>
+      <head>
+        <ColorSchemeScript defaultColorScheme="light" />
+      </head>
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <MantineProvider theme={theme} defaultColorScheme="light">
+          <ModalsProvider>
+            <Notifications position="top-right" />
+            <AuthProvider>{children}</AuthProvider>
+          </ModalsProvider>
+        </MantineProvider>
       </body>
     </html>
   )

@@ -1,40 +1,57 @@
-import { NextRequest } from 'next/server'
-import { headers } from 'next/headers'
-import { nanoid } from 'nanoid'
-import { prisma } from '@/shared/lib/prisma'
-import { setTokenCookie, COOKIE_NAMES } from '@/shared/lib/auth/cookies'
-import { successResponse, withErrorHandler } from '@/shared/lib/api-errors'
-import { AUTH } from '@/shared/constants'
+import { NextRequest, NextResponse } from 'next/server'
+import { cookies, headers } from 'next/headers'
+import { createAnonymousUser } from '@/shared/lib/create-anonymous'
+import { ANONYMOUS_TOKEN_COOKIE } from '@/shared/lib/auth'
 
-export const POST = withErrorHandler(async (request: NextRequest) => {
-  // Получаем IP адрес и User-Agent
-  const headersList = await headers()
-  const ipAddress = headersList.get('x-forwarded-for') || headersList.get('x-real-ip') || 'unknown'
-  const userAgent = headersList.get('user-agent') || 'unknown'
+export async function POST(request: NextRequest) {
+  try {
+    const headersList = await headers()
+    const cookieStore = await cookies()
 
-  // Генерируем уникальный session ID с помощью nanoid
-  // Формат: anon_<timestamp>_<random> для лучшей читаемости в логах
-  const timestamp = Date.now().toString(36)
-  const randomPart = nanoid(16)
-  const sessionId = `anon_${timestamp}_${randomPart}`
+    // Проверяем текущий токен
+    const currentToken = cookieStore.get(ANONYMOUS_TOKEN_COOKIE)?.value
+    console.log(
+      '📍 Anonymous POST endpoint called. Current token:',
+      currentToken ? currentToken.substring(0, 8) + '...' : 'none'
+    )
 
-  // Создаем анонимного пользователя
-  const anonymousUser = await prisma.anonymousUser.create({
-    data: {
-      sessionId,
-      ipAddress: ipAddress.split(',')[0].trim(), // Берем первый IP если их несколько
-      userAgent: userAgent.substring(0, 500), // Ограничиваем длину
-    },
-  })
+    const ipAddress =
+      headersList.get('x-forwarded-for') || headersList.get('x-real-ip') || 'unknown'
+    const userAgent = headersList.get('user-agent') || 'unknown'
 
-  // Устанавливаем cookies на 365 дней
-  await setTokenCookie(COOKIE_NAMES.ANONYMOUS_TOKEN, sessionId, AUTH.ANONYMOUS_TOKEN_EXPIRES_IN)
-  await setTokenCookie(COOKIE_NAMES.SESSION_ID, sessionId, AUTH.ANONYMOUS_TOKEN_EXPIRES_IN)
+    console.log('🔨 Creating anonymous user...')
 
-  return successResponse({
-    anonymousUser: {
+    const anonymousUser = await createAnonymousUser(ipAddress.split(',')[0].trim(), userAgent)
+
+    if (!anonymousUser) {
+      console.error('❌ Failed to create anonymous user')
+      return NextResponse.json({ error: 'Не удалось создать анонимную сессию' }, { status: 500 })
+    }
+
+    console.log('✅ Anonymous user created successfully:', {
       id: anonymousUser.id,
       sessionId: anonymousUser.sessionId,
-    },
-  })
-})
+    })
+
+    return NextResponse.json({
+      success: true,
+      session: {
+        id: anonymousUser.id,
+        sessionId: anonymousUser.sessionId,
+        token: anonymousUser.token,
+      },
+    })
+  } catch (error) {
+    console.error('❌ Error creating anonymous session:', error)
+    if (error instanceof Error) {
+      console.error('Error details:', error.message)
+    }
+    return NextResponse.json(
+      {
+        error: 'Внутренняя ошибка сервера',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
+  }
+}
